@@ -1,0 +1,20 @@
+Package: bis557
+Type: Package
+Title: BIS557 HW 2
+Version: 0.1.0
+Author: Lia Lee
+Maintainer: Lia Lee <lia.lee@yale.edu>
+Description: This package creates two functions ridge_regression and ridge_lambda_optimization which provides
+             a list of beta coefficient estimators for ridge regression and a lambda parameter optimal for ridge
+             regression given a data set.
+License: LGPL-2
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.1
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat (>= 2.1.0)
+VignetteBuilder: knitr
+Depends: R (>= 3.0.1)
+Imports: stats, casl, doParallel, rsample, foreach, dplyr, tibble, MASS, crayon, magrittr

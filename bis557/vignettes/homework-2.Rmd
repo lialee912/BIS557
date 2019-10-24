@@ -1,0 +1,219 @@
+---
+title: "homework-2"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{homework-2}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+**BIS 557 Homework 2: Lia Lee**
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(bis557)
+```
+
+**1. CASL 2.11 Problem #5**
+
+Consider the simple regression model with only a scalar x and intercept:
+
+$y = \beta_0 + \beta_1 \cdot x$
+
+Using the explicit formula for the inverse of a 2x2 matrix write down the least squares estimators for $\hat{\beta_0}$ and $\hat{\beta_1}$.
+
+Assuming that there are n observations, $y = \beta_0 + \beta_1 x$ where
+
+$$
+y = \left(\begin{array}{ccc} 
+x_{11}&\cdots&x_{p1}\\
+\vdots&\ddots&\vdots\\
+x_{p1}&\cdots&x_{pn}\\
+\end{array}\right)
+\left(\begin{array}{c} 
+\hat{\beta_0}\\
+\hat{\beta_1}\\
+\end{array}\right)
+$$ 
+
+In order to find the $\hat{\beta}$ estimators, we want to minimize $|| y - x\beta||_2^2$. We can do this by looking first at $f(b) = (y-bx)^2$ and then setting $f'(b) = 2(y-bx)(-x) = 0$ and solving for beta.
+
+In matrix algebra notation, we have the following:
+
+$$f'(\beta) = -2 (X^T)(Y-X\beta) = 0$$
+$$X^T(Y-X\beta) = 0$$
+$$X^TY-X^TX\beta = 0$$
+$$X^Ty = X^TX\beta$$
+
+$$\Longrightarrow \hat{\beta} = (X^TX)^{-1} X^T Y$$
+
+Note here that $\hat{\beta}$ is a 2x1 matrix, $(X^TX)^{-1}$ is a 2x2 matrix, $X^T$ is a 2xn matrix, and Y is a nx1 matrix, so the dimensionality works out.
+
+Let's solve for the first part: $X^TX$ the 2x2 matrix. In the notation below, always assume the summation goes from $i = 1$ to $n$.
+
+$$X^TX = \left(\begin{array}{ccc} 
+1&\cdots&1\\
+\vdots&\ddots&\vdots\\
+x_1&\cdots&x_n\\
+\end{array}\right)
+\left(\begin{array}{cc} 
+1 & x_1\\
+\vdots & \vdots\\
+x_1 & x_n\\
+\end{array}\right) = 
+\left(\begin{array}{cc} 
+n & \sum x_i\\
+\sum x_i & \sum x_i^2\\
+\end{array}\right) $$
+
+Next, let's solve for the inverse of this matrix, i.e. $(X^TX)^{-1}$ by using the definition of inverse of a matrix as follows:
+
+$$\text{For A } = \left(\begin{array}{cc} 
+a & b\\
+c & d\\
+\end{array}\right), A^{-1} = \frac{1}{|A|} \left(\begin{array}{cc} 
+d & -b\\
+-c & a\\
+\end{array}\right)$$
+
+$$\text{Therefore } (X^TX)^{-1} = \frac{1}{n\sum x_i^2 - \sum x_i^2} \left(\begin{array}{cc} 
+\sum x_i^2 & -\sum x_i\\
+-\sum x_i & n\\
+\end{array}\right)$$
+
+Next, we will solve for $X^T Y$ which is a (2xn)(nx2) = 2x1 matrix:
+
+$$X^T Y = \left(\begin{array}{ccc} 
+1 & \cdots & 1\\
+\vdots & \ddots & \vdots\\
+x_1 & \cdots & x_n\\
+\end{array}\right) \left(\begin{array}{c} 
+y_1 \\
+\vdots\\
+y_n \\
+\end{array}\right) = 
+\left(\begin{array}{c} 
+\sum y_i \\
+\sum x_i y_i\\
+\end{array}\right)$$
+
+Putting it all together, we have: 
+$$\hat{\beta} = (X^T X)^{-1} XT ^Y = \frac{1}{n\sum x_i^2 - (\sum x_i)^2} 
+\left(\begin{array}{cc} 
+\sum x_i^2 & -\sum x_i\\
+-\sum x_i & n\\
+\end{array}\right)
+\left(\begin{array}{c} 
+\sum y_i\\
+\sum x_i \sum y_i\\
+\end{array}\right)$$
+
+$$ = \boxed{
+\left(\begin{array}{c} 
+\hat{\beta_0}\\
+\hat{\beta_1}\\
+\end{array}\right) = \frac{1}{n\sum x_i^2 - (\sum x_i)^2} 
+\
+\left(\begin{array}{c} 
+\sum x_i^2 \sum y_i - \sum x_i (\sum x_i y_i)\\
+-\sum x_i \sum y_i + n \sum x_i y_i\\
+\end{array}\right)}$$
+
+**4. Section 2.8 of CASL shows that as the numerical stability decreases, statistical errors increase. Reproduce the results and then show that using ridge regression can increase numerical stability and decrease statistical error.**
+
+Note: The code below is modified from pg 30-31 of the CASL textbook.
+
+To demonstrate the inverse relationship between numerical stability and statistical error, we will run the following simulation.
+
+```{r}
+library(casl)
+n <- 1000; p <- 25 
+beta <- c(1, rep(0, p-1)) #create regression vector beta with 1st coordinate 1 and the rest 0
+X <- matrix(rnorm(n*p), ncol=p) #data matrix X with randomly sampled normal variables
+
+svals <- svd(X)$d
+max(svals) / min(svals) #calculating the condition # of the matrix X --> (1.36)
+
+#generate y and see how close beta_OLS is to the true beta
+n <- 1000
+count_errors <- rep(0, n)
+for (k in 1:n) {
+  y <- X %*% beta + rnorm(n)
+  betahat <- casl_ols_svd(X,y)
+  count_errors[k] <- sqrt(sum((betahat - beta)^2))
+}
+mean(count_errors) #typical error is small = 0.158
+
+#replace 1st column of X with linear combo of 1st and 2nd column (--> 2 X columns highly correlated) leading to higher condition # for matrix X^T X
+
+alpha <- 0.001
+X[,1] <- X[,1] * alpha + X[,2] * (1-alpha) 
+svals <- svd(X)$d
+max(svals) / min(svals) #condition number high = 2000
+
+#rerunning simulation, we see that the error rate increased significantly
+n <- 1000
+count_errors <- rep(0, n)
+for (k in 1:n) {
+  y <- X %*% beta + rnorm(n)
+  betahat <- solve(crossprod(X), crossprod(X,y))
+  count_errors[k] <- sqrt(sum((betahat - beta)^2))
+}
+mean(count_errors)
+```
+
+Now, let's try using ridge regression. We want to show that the condition number decreases (stability increases) and statistical error decreases.
+
+```{r}
+alpha <- 0.001
+lambda <- 0.01
+X <- matrix(rnorm(n*p), ncol=p) #redo X
+X[,1] <- X[,1] * alpha + X[,2] * (1-alpha) 
+svals <- svd(X)$d
+max(svals) + lambda / min(svals) +lambda #condition number = 46
+
+n <- 1000
+check_errors <- rep(0, n)
+for (k in 1:n) {
+  y <- X %*% beta + rnorm(n)
+  betahat_ridge <- solve( crossprod(X) + diag(rep(lambda, ncol(X))) ) %*% t(X) %*% y #change to beta_hat_ridge
+  check_errors[k] <- sqrt(sum((betahat_ridge - beta)^2))
+}
+
+mean(check_errors)
+```
+Indeed, the conditional number has been reduced from 2000 to nearly 45, indicating an increase in numerical stability. In addition, the statistical error has dropped significantly from 34 to less than 2.
+
+**5. Consider the LASSO penalty.**
+
+Consider the LASSO penalty $\frac{1}{2n} || Y - X \beta ||_2^2 + \lambda|| \beta ||_1$. Show that if $|X_j^TY| \le n\lambda$, then $\hat{\beta}_{LASSO} = 0$.
+
+We want to start with $f(\beta) = || y-X\beta ||^2_2 + \lambda |\beta| = \sum(y_i = (x_i \beta)^2 + \lambda |\beta|$ and evaluate the two cases where $\beta \ge 0$ and $\beta < 0$. For the first case we will assume that $\beta \ge 0$. It therefore follows that:
+
+$$f(\beta) = \sum(y_i = (x_i \beta)^2 + \lambda \beta$$
+$$f'(\beta) = -2 \sum x_i(y_i - x_i\beta) + \lambda = 0$$
+$$\Longrightarrow \sum x_i(y_i - x_i \beta) - \frac{\lambda}{2} = 0$$
+
+$$\sum x_i y_i - \sum x_i^2 \beta - \frac{\lambda}{2} = 0$$
+
+$$\sum x_i y_i - \frac{\lambda}{2} = \sum x_i^2 \beta$$
+
+Assuming that $\sum x_i^2 = 1$ and solving for $\beta$, we get $\hat{\beta} = \sum x_i y_i - \frac{\lambda}{2}$. Which only holds if $\sum x_i y_i > \frac{\lambda}{2} > 0$.
+
+Reformatting this in matrix algebra notation, the following is equivalent:
+
+$$L = \frac{1}{2n} || Y - X\beta ||_2^2 + \lambda \beta$$
+$$\frac{dL}{d\beta} = \frac{2}{2n} (-X^t)(Y-X\beta) + \lambda = 0$$
+$$(-X^T)(Y-X\beta) + n\lambda = 0$$
+$$-X^TY + X^T X \beta + n\lambda = 0$$
+$$X^T X \beta = X^T Y - n \lambda$$
+
+$$\boxed{\hat{\beta} = (X^TX)^{-1} [X^TY - n\lambda] = X^TY - n\lambda}$$
+
+Given that $(X^T X) = I$. This tells us that for $\beta \ge 0$, the value $\hat{\beta} = X^T Y - n\lambda$ achieves the minimum value of of $L(\beta)$. Picturing $L(\beta)$ as a shape of an upward parabola, with minimum at $\hat{\beta} = X^T Y - n\lambda$, 
+if $X^T Y - n\lambda < 0$, or if 0 is to the right of $X^T Y - n\lambda$, then the minimum value of is 0. If however, $X^T Y - n\lambda > 0$, or if 0 is to the left of $X^T Y - n\lambda$, then $X^T Y - n\lambda$ is indeed greater than 0 (matching our condition) and the minimum. However, at the beginning, we are given that $|X^TY| < n\lambda$, so it must be true the first case scenario, where $X^T Y - n\lambda < 0$ and that $\hat{\beta}_{LASSO} = 0$. If we solve $\hat{\beta}_{LASSO}$ for the other condition where $\beta < 0$, we achieve a similar result where $\hat{\beta} = X^T Y + n\lambda$ by directionality. Now, if we have the case where $\hat{\beta} = X^T Y + n\lambda > 0$, we get that $\hat{\beta} = 0$ by the initial constraint. If we have $\hat{\beta} = X^T Y + n\lambda < 0$, the the minimum is $X^T Y + n\lambda$. A similar set of solutions is provided in pg 184 of the CASL textbook. Note that the above work was proved for a 1-dimensional case, but it can be similarly applied for a multidimensional case, i.e. given $X_j^T Y < n\lambda$ then $\hat{\beta}_{LASSO} = 0$ for $j=1, \cdots, p$.
